@@ -10,7 +10,9 @@
 
 import click
 
-from . import __version__
+from aurh import __version__
+from aurh.rpc import RPC
+from aurh.utils import Utils
 
 
 @click.group()
@@ -21,13 +23,48 @@ def main():
 
 
 @main.command(name="find", help="find AUR packages")
-@click.argument("package", nargs=-1)
-def find(package):
-    print(package)
+@click.option("--name", "find_by", flag_value=1, help="find by package name and description")
+@click.option("--maintainer", "find_by", flag_value=2, help="find by package maintainer")
+@click.option("--depends", "find_by", flag_value=3, help="find by package maintainer")
+@click.option("--makedepends", "find_by", flag_value=4, help="find for packages that makedepend on keywords")
+@click.option("--paginate", "paginate_by", default=7, help="number of results shown per page")
+@click.argument("kwd", nargs=1)
+def find(find_by, paginate_by, kwd):
+    try:
+        rpc = RPC()
+        click.secho("Fetching...", fg="cyan")
+        results = rpc.find(kwd, flag=find_by)
+        paginated_result = [results[i:i + paginate_by] for i in range(0, len(results), paginate_by)]
+        i = 0
+        while True:
+            Utils.pretty_print_package_list(paginated_result[i], i, paginate_by, len(results))
+            inp = click.prompt(" ", prompt_suffix="==>")
+            if inp.lower() == 'q':
+                break
+            elif inp.lower() == 'n':
+                i = i + 1 if (i + 1 < len(paginated_result)) else i
+            elif inp.lower() == 'p':
+                i = i - 1 if (i - 1 >= 0) else i
+            else:
+                try:
+                    package_list = list(map(int, inp.strip().split(" ")))
+                    if all(i < len(results) for i in package_list):
+                        if Utils.installation_confirmation_prompt(results, package_list):
+                            print("Installation!")
+                        break
+                    raise IndexError
+                except ValueError:
+                    click.secho("package list should contain numbers only!", fg="red")
+                    click.pause(info="Press any key to try again...", err=True)
+                except IndexError:
+                    click.secho("Package index out of range!", fg="red")
+                    click.pause(info="Press any key to try again...", err=True)
+    except IndexError:
+        click.secho("No results found!", fg="red")
 
 
 @main.command(name="info", help="get info about AUR packages")
-@click.argument("package", nargs=-1)
+@click.argument("package", nargs=1)
 def info(package):
     print(package)
 
