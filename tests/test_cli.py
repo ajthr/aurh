@@ -16,4 +16,5 @@ class TestCLI:
 
     def test_version(self, helpers):
         result = subprocess.run(['aurh', '--version'], capture_output=True)
+        assert helpers.check_none(result.stderr)
         assert __version__ in helpers.decode(result.stdout)
